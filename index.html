@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>The Week — A Dashboard</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#1a1611"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="The Week"/>
+<link rel="apple-touch-icon" href="./icon-192.png"/>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4efe6;
+    --bg-deeper: #ebe3d4;
+    --ink: #1a1611;
+    --ink-soft: #5a4f3f;
+    --rule: #2a241c;
+    --accent: #b8442c;
+    --accent-deep: #8a2f1f;
+    --gold: #c4954a;
+    --moss: #5a6b3f;
+    --slate: #3f4a5a;
+    --plum: #6b3f5a;
+    --paper-shadow: rgba(26, 22, 17, 0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(184, 68, 44, 0.04), transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(196, 149, 74, 0.05), transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* Masthead */
+  .masthead {
+    border-bottom: 2px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: end;
+    gap: 24px;
+  }
+
+  .masthead-left {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+  }
+
+  .masthead-left .date {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .masthead-title {
+    text-align: center;
+  }
+
+  .masthead-title h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(48px, 7vw, 92px);
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+
+  .masthead-title h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  .masthead-right {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+
+  .masthead-right .count {
+    display: block;
+    font-size: 24px;
+    font-family: 'Fraunces', serif;
+    color: var(--ink);
+    letter-spacing: 0;
+    margin-bottom: 2px;
+  }
+
+  .subhead {
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 0;
+    margin-bottom: 40px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .week-nav {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-style: normal;
+  }
+
+  .week-nav button {
+    background: none;
+    border: 1px solid var(--rule);
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: var(--ink);
+    transition: all 0.2s;
+  }
+
+  .week-nav button:hover {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  /* Week strip */
+  .week-strip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-bottom: 48px;
+  }
+
+  .day {
+    background: var(--bg);
+    padding: 14px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+
+  .day:hover { background: var(--bg-deeper); }
+
+  .day.today {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .day.today .day-label,
+  .day.today .day-num { color: var(--bg); }
+
+  .day-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  .day-num {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .day-dots {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    min-height: 8px;
+  }
+
+  .day-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .day-dot.optional { background: var(--gold); }
+
+  .day.today .day-dot { background: var(--bg); }
+
+  /* Categories grid */
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 32px;
+  }
+
+  .category {
+    border-top: 2px solid var(--rule);
+    padding-top: 16px;
+    position: relative;
+  }
+
+  .category.required { border-top-color: var(--accent); border-top-width: 3px; }
+  .category.most-days { border-top-color: var(--gold); }
+
+  .cat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+
+  .cat-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+
+  .cat-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    padding: 2px 8px;
+    border: 1px solid var(--ink-soft);
+    border-radius: 2px;
+  }
+
+  .category.required .cat-badge {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .category.most-days .cat-badge {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .cat-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .cat-meta .pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pulse-bar {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .pulse-cell {
+    width: 6px;
+    height: 12px;
+    background: var(--bg-deeper);
+    border: 1px solid var(--ink-soft);
+  }
+
+  .pulse-cell.filled { background: var(--ink); border-color: var(--ink); }
+
+  .task-list {
+    list-style: none;
+    margin-bottom: 12px;
+  }
+
+  .task {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--bg-deeper);
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .task:hover { background: rgba(0,0,0,0.02); }
+
+  .task input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--rule);
+    border-radius: 0;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 3px;
+    background: var(--bg);
+    transition: all 0.15s;
+  }
+
+  .task input[type="checkbox"]:hover {
+    border-color: var(--accent);
+  }
+
+  .task input[type="checkbox"]:checked {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .task input[type="checkbox"]:checked::after {
+    content: "✓";
+    position: absolute;
+    color: var(--bg);
+    font-size: 11px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+  }
+
+  .task-text {
+    flex: 1;
+    font-size: 15px;
+    line-height: 1.4;
+    font-family: 'Fraunces', serif;
+  }
+
+  .task.done .task-text {
+    text-decoration: line-through;
+    color: var(--ink-soft);
+    opacity: 0.6;
+  }
+
+  .task-delete {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 0 4px;
+    transition: opacity 0.15s;
+  }
+
+  .task:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: var(--accent-deep); }
+
+  .add-task {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--bg-deeper);
+  }
+
+  .add-task input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--ink-soft);
+    padding: 6px 0;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .add-task input[type="text"]:focus {
+    border-bottom-color: var(--accent);
+  }
+
+  .add-task input[type="text"]::placeholder {
+    color: var(--ink-soft);
+    opacity: 0.6;
+  }
+
+  .add-task button {
+    background: none;
+    border: 1px solid var(--rule);
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+    transition: all 0.2s;
+  }
+
+  .add-task button:hover {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  /* Subtask nesting */
+  .subtask-list {
+    list-style: none;
+    margin: 4px 0 4px 26px;
+    padding-left: 12px;
+    border-left: 1px dotted var(--ink-soft);
+  }
+
+  .subtask-list .task {
+    padding: 5px 0;
+  }
+
+  .subtask-list .task-text {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+
+  .subtask-list .task.done .task-text {
+    color: var(--ink-soft);
+    opacity: 0.5;
+  }
+
+  .subtask-list .task input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    margin-top: 4px;
+  }
+
+  .subtask-list .task input[type="checkbox"]:checked::after {
+    font-size: 9px;
+  }
+
+  .add-subtask, .urgent-toggle {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+
+  .task:hover > .add-subtask,
+  .task:hover > .urgent-toggle { opacity: 0.7; }
+  .add-subtask:hover { color: var(--accent); opacity: 1 !important; }
+  .urgent-toggle:hover { color: var(--accent-deep); opacity: 1 !important; font-size: 14px; }
+
+  /* When task is urgent, show toggle in red always */
+  .task.urgent > .urgent-toggle {
+    opacity: 1;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  /* Urgent task styling */
+  .task.urgent {
+    background: linear-gradient(90deg, rgba(184, 68, 44, 0.08), transparent 80%);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+    margin-left: -10px;
+  }
+
+  .task.urgent > .task-text {
+    color: var(--accent-deep);
+    font-weight: 500;
+  }
+
+  .task.urgent.done {
+    background: transparent;
+    border-left-color: var(--ink-soft);
+  }
+
+  .task.urgent.done > .task-text {
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+
+  /* Collapse toggle */
+  .collapse-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    padding: 0;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 3px;
+    flex-shrink: 0;
+    transition: transform 0.15s, color 0.15s;
+  }
+
+  .collapse-toggle:hover { color: var(--ink); }
+
+  .collapse-toggle.collapsed {
+    transform: rotate(-90deg);
+  }
+
+  .collapse-spacer {
+    width: 14px;
+    flex-shrink: 0;
+  }
+
+  .subtask-list.hidden { display: none; }
+
+  /* Inline edit input */
+  .task-edit-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--accent);
+    padding: 0;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    line-height: 1.4;
+  }
+
+  .subtask-list .task-edit-input {
+    font-size: 13.5px;
+  }
+
+  .task-text {
+    transition: opacity 0.15s;
+  }
+
+  .task-text:hover {
+    opacity: 0.7;
+    cursor: text;
+  }
+
+  /* Completion timestamp */
+  .completion-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+    margin-left: 8px;
+    white-space: nowrap;
+    opacity: 0.75;
+    flex-shrink: 0;
+  }
+
+  .subtask-list .completion-time {
+    font-size: 9px;
+  }
+
+  .subtask-input-wrap {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 4px 26px;
+    padding: 6px 12px;
+    border-left: 1px dotted var(--accent);
+  }
+
+  .subtask-input-wrap input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--accent);
+    padding: 4px 0;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .subtask-input-wrap input[type="text"]::placeholder {
+    color: var(--ink-soft);
+    opacity: 0.6;
+  }
+
+  /* Morning routine sidebar */
+  .routine {
+    margin-bottom: 48px;
+    padding: 24px;
+    background: var(--bg-deeper);
+    border-left: 3px solid var(--plum);
+    position: relative;
+  }
+
+  .routine h2 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+
+  .routine-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .routine-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .routine-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 6px 0;
+  }
+
+  .routine-item .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+    min-width: 50px;
+  }
+
+  .routine-item .label {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+  }
+
+  .routine-item.done .label {
+    text-decoration: line-through;
+    color: var(--ink-soft);
+  }
+
+  .routine-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--rule);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+
+  .routine-item input[type="checkbox"]:checked {
+    background: var(--plum);
+    border-color: var(--plum);
+  }
+
+  .routine-item input[type="checkbox"]:checked::after {
+    content: "✓";
+    position: absolute;
+    color: var(--bg);
+    font-size: 10px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 2px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+  }
+
+  .footer .reset {
+    background: none;
+    border: 1px solid var(--ink-soft);
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: var(--ink-soft);
+    transition: all 0.2s;
+  }
+
+  .footer .reset:hover {
+    border-color: var(--accent-deep);
+    color: var(--accent-deep);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 80px 0;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+  }
+
+  /* ============ Auth screen ============ */
+  .auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .auth-overlay.hidden { display: none; }
+
+  .auth-card {
+    width: 100%;
+    max-width: 380px;
+    border-top: 3px solid var(--accent);
+    background: var(--bg-deeper);
+    padding: 40px 32px;
+    box-shadow: 0 4px 24px var(--paper-shadow);
+  }
+
+  .auth-card h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+
+  .auth-card h2 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+
+  .auth-card .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+  }
+
+  .auth-field {
+    margin-bottom: 16px;
+  }
+
+  .auth-field label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  .auth-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    padding: 10px 12px;
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .auth-field input:focus {
+    border-color: var(--accent);
+  }
+
+  .auth-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .auth-btn {
+    flex: 1;
+    background: var(--ink);
+    color: var(--bg);
+    border: 1px solid var(--ink);
+    padding: 12px 16px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    transition: all 0.15s;
+  }
+
+  .auth-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .auth-btn.secondary { background: transparent; color: var(--ink); }
+  .auth-btn.secondary:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .auth-msg {
+    margin-top: 16px;
+    padding: 10px 12px;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    font-style: italic;
+    background: var(--bg);
+    border-left: 2px solid var(--ink-soft);
+    color: var(--ink);
+    display: none;
+  }
+
+  .auth-msg.visible { display: block; }
+  .auth-msg.error { border-left-color: var(--accent-deep); color: var(--accent-deep); }
+  .auth-msg.success { border-left-color: var(--moss); color: var(--moss); }
+
+  /* Sync status indicator */
+  .sync-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-left: 12px;
+  }
+  .sync-status.syncing { color: var(--gold); }
+  .sync-status.error { color: var(--accent-deep); }
+  .sync-status.synced { color: var(--moss); }
+
+  .signout-btn {
+    background: none;
+    border: 1px solid var(--ink-soft);
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    transition: all 0.2s;
+  }
+  .signout-btn:hover { border-color: var(--accent-deep); color: var(--accent-deep); }
+
+  @media (max-width: 700px) {
+    .wrap { padding: 24px 16px 48px; }
+    .masthead { grid-template-columns: 1fr; text-align: center; }
+    .masthead-left, .masthead-right { text-align: center; }
+    .week-strip { font-size: 12px; }
+    .day { padding: 10px 4px; }
+    .day-num { font-size: 20px; }
+    .categories { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <h2>The <em>Week</em></h2>
+    <div class="sub">Sign in to continue</div>
+
+    <div class="auth-field">
+      <label for="authEmail">Email</label>
+      <input type="email" id="authEmail" autocomplete="email" placeholder="you@example.com"/>
+    </div>
+    <div class="auth-field">
+      <label for="authPassword">Password</label>
+      <input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••"/>
+    </div>
+
+    <div class="auth-actions">
+      <button class="auth-btn" id="signInBtn">Sign in</button>
+      <button class="auth-btn secondary" id="signUpBtn">Sign up</button>
+    </div>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="masthead-left">
+      <span class="date" id="todayDate">—</span>
+      <span>Vol. I · No. <span id="weekNum">—</span></span>
+    </div>
+    <div class="masthead-title">
+      <h1>The <em>Week</em></h1>
+    </div>
+    <div class="masthead-right">
+      <span class="count" id="weekCount">—</span>
+      <span>Tasks completed</span>
+      <div class="sync-status" id="syncStatus"></div>
+    </div>
+  </header>
+
+  <div class="subhead">
+    <span id="subheadText">A weekly accounting of the things that matter.</span>
+    <div class="week-nav">
+      <button id="prevWeek">← Prev</button>
+      <button id="thisWeek">This Week</button>
+      <button id="nextWeek">Next →</button>
+    </div>
+  </div>
+
+  <!-- Morning routine -->
+  <div class="routine">
+    <h2>Today's Foundation</h2>
+    <div class="routine-sub">6:00 – 8:30 · Daily practice</div>
+    <div class="routine-grid" id="routineGrid"></div>
+  </div>
+
+  <!-- Week strip -->
+  <div class="week-strip" id="weekStrip"></div>
+
+  <!-- Categories -->
+  <div id="categoriesContainer">
+    <div class="loading">Loading the week…</div>
+  </div>
+
+  <footer class="footer">
+    <span>Built for a considered life · <span id="footerDate"></span></span>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="reset" id="exportBtn">Export data</button>
+      <button class="reset" id="importBtn">Import data</button>
+      <button class="reset" id="resetBtn">Reset all data</button>
+      <button class="signout-btn" id="signOutBtn">Sign out</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none"/>
+  </footer>
+
+</div>
+
+<script>
+  // ============ Categories ============
+  const CATEGORIES = [
+    { id: "finding_job",    name: "Finding Job",         tier: "required",  meta: "Every day" },
+    { id: "film_work",      name: "Film Work",           tier: "required",  meta: "Every day" },
+    { id: "websites",       name: "Websites",            tier: "required",  meta: "Every day" },
+    { id: "dads_book",      name: "Dad's Book",          tier: "most-days", meta: "4–5×/week" },
+    { id: "workout",        name: "Workout",             tier: "most-days", meta: "3–4×/week" },
+    { id: "cleaning",       name: "Cleaning",            tier: "optional",  meta: "Pairs w/ Gardening" },
+    { id: "gardening",      name: "Gardening",           tier: "optional",  meta: "Pairs w/ Cleaning" },
+    { id: "software_clean", name: "Software Cleaning",   tier: "optional",  meta: "Pairs w/ Programs" },
+    { id: "making_programs",name: "Making Programs",     tier: "optional",  meta: "Pairs w/ Software" },
+    { id: "political",      name: "Political",           tier: "optional",  meta: "As it moves you" },
+    { id: "friends",        name: "Friends",             tier: "optional",  meta: "As it moves you" },
+    { id: "misc",           name: "Miscellaneous",       tier: "optional",  meta: "Everything else" },
+  ];
+
+  const MORNING_ROUTINE = [
+    { id: "wake",     time: "6:00",  label: "Wake" },
+    { id: "ees",      time: "6:05",  label: "Energization Exercises" },
+    { id: "mudras",   time: "6:20",  label: "Maha Mudras" },
+    { id: "lessons",  time: "6:40",  label: "Lessons" },
+    { id: "med_am",   time: "7:30",  label: "Meditation (1 hr)" },
+    { id: "med_pm",   time: "5:30",  label: "Evening Meditation (30 min)" },
+  ];
+
+  // ============ State helpers ============
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function dateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function getWeekStart(d) {
+    // Monday-start week
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0,0,0,0);
+    return date;
+  }
+
+  function getWeekNumber(d) {
+    const date = new Date(d.getTime());
+    date.setHours(0,0,0,0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    const week1 = new Date(date.getFullYear(), 0, 4);
+    return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  }
+
+  let viewWeekStart = getWeekStart(new Date());
+  let state = { tasks: {}, completed: {}, routine: {} };
+
+  // ============ Supabase config ============
+  // *** PASTE YOUR PROJECT VALUES HERE ***
+  const SUPABASE_URL = "https://xqmbimbexahzmjkueqcn.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_HTyFOx8XPEB4LLnn5vbRow_EfmVIU1y";
+
+  let supabase = null;
+  let currentUser = null;
+  let saveTimer = null;
+  let saveInFlight = false;
+  let pendingSave = false;
+
+  function initSupabase() {
+    if (SUPABASE_URL.startsWith("YOUR_") || SUPABASE_ANON_KEY.startsWith("YOUR_")) {
+      showAuthMsg("Supabase not configured. Edit index.html and paste your project URL and anon key.", "error");
+      return false;
+    }
+    if (!window.supabase) {
+      showAuthMsg("Supabase library failed to load. Check your internet connection.", "error");
+      return false;
+    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+    return true;
+  }
+
+  // ============ Sync indicator ============
+  function setSyncStatus(label, cssClass) {
+    const el = document.getElementById("syncStatus");
+    if (!el) return;
+    el.textContent = label;
+    el.className = "sync-status " + (cssClass || "");
+  }
+
+  // ============ Storage (Supabase-backed) ============
+  async function loadState() {
+    if (!supabase || !currentUser) return;
+    setSyncStatus("Loading…", "syncing");
+    try {
+      const { data, error } = await supabase
+        .from("dashboard_state")
+        .select("data")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Load error", error);
+        setSyncStatus("Load failed", "error");
+        return;
+      }
+
+      if (data && data.data) {
+        const d = data.data;
+        state = {
+          tasks: d.tasks || {},
+          completed: d.completed || {},
+          routine: d.routine || {}
+        };
+      } else {
+        // first time — create an empty row
+        await supabase
+          .from("dashboard_state")
+          .insert({ user_id: currentUser.id, data: state });
+      }
+      setSyncStatus("Synced", "synced");
+      setTimeout(() => setSyncStatus("", ""), 1500);
+    } catch (e) {
+      console.error("Load failed", e);
+      setSyncStatus("Load failed", "error");
+    }
+  }
+
+  // Debounced save — coalesces rapid changes into one network call
+  async function saveState() {
+    if (!supabase || !currentUser) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    setSyncStatus("Saving…", "syncing");
+    saveTimer = setTimeout(async () => {
+      if (saveInFlight) { pendingSave = true; return; }
+      await doSave();
+    }, 400);
+  }
+
+  async function doSave() {
+    saveInFlight = true;
+    try {
+      const { error } = await supabase
+        .from("dashboard_state")
+        .upsert({ user_id: currentUser.id, data: state }, { onConflict: "user_id" });
+
+      if (error) {
+        console.error("Save error", error);
+        setSyncStatus("Save failed", "error");
+      } else {
+        setSyncStatus("Synced", "synced");
+        setTimeout(() => setSyncStatus("", ""), 1200);
+      }
+    } catch (e) {
+      console.error("Save failed", e);
+      setSyncStatus("Save failed", "error");
+    } finally {
+      saveInFlight = false;
+      if (pendingSave) {
+        pendingSave = false;
+        await doSave();
+      }
+    }
+  }
+
+  // ============ Auth ============
+  function showAuthMsg(text, type) {
+    const el = document.getElementById("authMsg");
+    el.textContent = text;
+    el.className = "auth-msg visible " + (type || "");
+  }
+
+  function clearAuthMsg() {
+    const el = document.getElementById("authMsg");
+    el.className = "auth-msg";
+  }
+
+  function showAuth() {
+    document.getElementById("authOverlay").classList.remove("hidden");
+  }
+  function hideAuth() {
+    document.getElementById("authOverlay").classList.add("hidden");
+  }
+
+  async function signIn() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    if (!email || !password) {
+      showAuthMsg("Email and password required.", "error");
+      return;
+    }
+    clearAuthMsg();
+    const btn = document.getElementById("signInBtn");
+    btn.disabled = true;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        showAuthMsg(error.message, "error");
+        return;
+      }
+      currentUser = data.user;
+      hideAuth();
+      await loadState();
+      renderAll();
+    } catch (e) {
+      showAuthMsg(e.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function signUp() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    if (!email || !password) {
+      showAuthMsg("Email and password required.", "error");
+      return;
+    }
+    if (password.length < 8) {
+      showAuthMsg("Password must be at least 8 characters.", "error");
+      return;
+    }
+    clearAuthMsg();
+    const btn = document.getElementById("signUpBtn");
+    btn.disabled = true;
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        showAuthMsg(error.message, "error");
+        return;
+      }
+      if (data.user && data.session) {
+        // Email confirmation disabled — user is signed in immediately
+        currentUser = data.user;
+        hideAuth();
+        await loadState();
+        renderAll();
+      } else {
+        showAuthMsg("Account created. Check your email to confirm, then sign in.", "success");
+      }
+    } catch (e) {
+      showAuthMsg(e.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function signOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    currentUser = null;
+    state = { tasks: {}, completed: {}, routine: {} };
+    showAuth();
+    renderAll();
+  }
+
+  // ============ Render ============
+  function renderHeader() {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString("en-US", {
+      weekday: "long", month: "long", day: "numeric", year: "numeric"
+    });
+    document.getElementById("todayDate").textContent = todayStr;
+    document.getElementById("weekNum").textContent = getWeekNumber(now);
+    document.getElementById("footerDate").textContent = todayStr;
+
+    // count for the displayed week
+    let count = 0;
+    const days = getWeekDates(viewWeekStart);
+    days.forEach(d => {
+      const dk = dateKey(d);
+      Object.keys(state.completed[dk] || {}).forEach(tid => {
+        if (state.completed[dk][tid]) count++;
+      });
+    });
+    document.getElementById("weekCount").textContent = count;
+
+    const weekEnd = new Date(viewWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const isThisWeek = dateKey(viewWeekStart) === dateKey(getWeekStart(new Date()));
+    document.getElementById("subheadText").textContent = isThisWeek
+      ? `The week of ${fmt(viewWeekStart)} – ${fmt(weekEnd)}. A weekly accounting.`
+      : `${fmt(viewWeekStart)} – ${fmt(weekEnd)}. Past or future.`;
+  }
+
+  function getWeekDates(start) {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  function renderWeekStrip() {
+    const strip = document.getElementById("weekStrip");
+    const todayK = todayKey();
+    const days = getWeekDates(viewWeekStart);
+    const labels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+    strip.innerHTML = days.map((d, i) => {
+      const dk = dateKey(d);
+      const isToday = dk === todayK;
+      const completed = state.completed[dk] || {};
+
+      // count required vs optional completions (flatten subtasks)
+      let reqDone = 0, optDone = 0;
+      CATEGORIES.forEach(cat => {
+        const catTasks = state.tasks[cat.id] || [];
+        const flat = flattenTasks(catTasks);
+        const anyDone = flat.some(t => completed[t.id]);
+        if (anyDone) {
+          if (cat.tier === "required") reqDone++;
+          else optDone++;
+        }
+      });
+
+      let dots = "";
+      for (let r = 0; r < reqDone; r++) dots += '<span class="day-dot"></span>';
+      for (let o = 0; o < optDone; o++) dots += '<span class="day-dot optional"></span>';
+
+      return `
+        <div class="day ${isToday ? 'today' : ''}">
+          <div class="day-label">${labels[i]}</div>
+          <div class="day-num">${d.getDate()}</div>
+          <div class="day-dots">${dots}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderRoutine() {
+    const grid = document.getElementById("routineGrid");
+    const tk = todayKey();
+    const todayRoutine = state.routine[tk] || {};
+    grid.innerHTML = MORNING_ROUTINE.map(item => `
+      <label class="routine-item ${todayRoutine[item.id] ? 'done' : ''}">
+        <input type="checkbox" data-routine="${item.id}" ${todayRoutine[item.id] ? 'checked' : ''}/>
+        <span class="time">${item.time}</span>
+        <span class="label">${item.label}</span>
+      </label>
+    `).join("");
+
+    grid.querySelectorAll("input[data-routine]").forEach(cb => {
+      cb.addEventListener("change", async e => {
+        const id = e.target.dataset.routine;
+        const tk = todayKey();
+        if (!state.routine[tk]) state.routine[tk] = {};
+        state.routine[tk][id] = e.target.checked;
+        await saveState();
+        renderRoutine();
+      });
+    });
+  }
+
+  function flattenTasks(tasks) {
+    const out = [];
+    (tasks || []).forEach(t => {
+      out.push(t);
+      if (t.children && t.children.length) {
+        out.push(...flattenTasks(t.children));
+      }
+    });
+    return out;
+  }
+
+  function findTask(tasks, id) {
+    for (const t of (tasks || [])) {
+      if (t.id === id) return t;
+      if (t.children) {
+        const found = findTask(t.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function findTaskParent(tasks, id, parent = null) {
+    for (const t of (tasks || [])) {
+      if (t.id === id) return { parent, list: tasks };
+      if (t.children) {
+        const found = findTaskParent(t.children, id, t);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function formatCompletionTime(value) {
+    // legacy data: boolean true means we don't know the time
+    if (value === true) return "Completed (no time recorded)";
+    if (!value || typeof value !== "string") return "";
+    const d = new Date(value);
+    if (isNaN(d)) return "";
+    const now = new Date();
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase().replace(" ", "");
+    const isToday = d.getFullYear() === now.getFullYear() &&
+                    d.getMonth() === now.getMonth() &&
+                    d.getDate() === now.getDate();
+    if (isToday) return `Completed at ${time}`;
+    const dayLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return `Completed ${dayLabel} at ${time}`;
+  }
+
+  function formatCompletionShort(value) {
+    if (value === true) return "—";
+    if (!value || typeof value !== "string") return "";
+    const d = new Date(value);
+    if (isNaN(d)) return "";
+    const now = new Date();
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase().replace(" ", "");
+    const isToday = d.getFullYear() === now.getFullYear() &&
+                    d.getMonth() === now.getMonth() &&
+                    d.getDate() === now.getDate();
+    if (isToday) return time;
+    const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
+    return `${dayLabel} ${time}`;
+  }
+
+  function renderTaskTree(tasks, catId, todayCompleted) {
+    if (!tasks || tasks.length === 0) return "";
+    return tasks.map(t => {
+      const completedValue = todayCompleted[t.id];
+      const isDone = !!completedValue;
+      const isUrgent = !!t.urgent;
+      const hasChildren = t.children && t.children.length > 0;
+      const isCollapsed = !!t.collapsed;
+
+      const toggleHtml = hasChildren
+        ? `<button class="collapse-toggle ${isCollapsed ? 'collapsed' : ''}" data-collapse="${t.id}" data-cat="${catId}" title="Collapse/expand">▾</button>`
+        : `<span class="collapse-spacer"></span>`;
+
+      const urgentLabel = isUrgent ? "★" : "☆";
+      const urgentTitle = isUrgent ? "Remove urgent" : "Mark urgent";
+
+      const checkboxTitle = isDone ? formatCompletionTime(completedValue) : "";
+      const completedShort = isDone ? formatCompletionShort(completedValue) : "";
+
+      const childrenHtml = hasChildren
+        ? `<ul class="subtask-list ${isCollapsed ? 'hidden' : ''}" data-children-of="${t.id}">${renderTaskTree(t.children, catId, todayCompleted)}</ul>`
+        : "";
+
+      return `
+        <li class="task ${isDone ? 'done' : ''} ${isUrgent ? 'urgent' : ''}" data-task-id="${t.id}" data-cat="${catId}">
+          ${toggleHtml}
+          <input type="checkbox" ${isDone ? 'checked' : ''} title="${escapeHtml(checkboxTitle)}"/>
+          <span class="task-text" data-edit="${t.id}" data-cat="${catId}" title="Click to edit">${escapeHtml(t.text)}</span>
+          ${isDone ? `<span class="completion-time" title="${escapeHtml(checkboxTitle)}">${escapeHtml(completedShort)}</span>` : ""}
+          <button class="urgent-toggle" data-urgent="${t.id}" data-cat="${catId}" title="${urgentTitle}">${urgentLabel}</button>
+          <button class="add-subtask" data-add-sub="${t.id}" data-cat="${catId}" title="Add subtask">+ sub</button>
+          <button class="task-delete" data-delete="${t.id}" data-cat="${catId}" title="Delete">✕</button>
+        </li>
+        ${childrenHtml}
+      `;
+    }).join("");
+  }
+
+  function renderCategories() {
+    const container = document.getElementById("categoriesContainer");
+    const weekDays = getWeekDates(viewWeekStart);
+
+    container.innerHTML = `<div class="categories">${
+      CATEGORIES.map(cat => {
+        const tasks = state.tasks[cat.id] || [];
+        const flatTasks = flattenTasks(tasks);
+
+        // pulse: did any task (or subtask) get completed each day of the displayed week
+        const pulse = weekDays.map(d => {
+          const dk = dateKey(d);
+          const completed = state.completed[dk] || {};
+          return flatTasks.some(t => completed[t.id]);
+        });
+
+        const pulseHtml = pulse.map(p =>
+          `<span class="pulse-cell ${p ? 'filled' : ''}"></span>`
+        ).join("");
+
+        const todayK = todayKey();
+        const todayCompleted = state.completed[todayK] || {};
+
+        const tasksHtml = tasks.length === 0
+          ? `<li style="font-style:italic; color:var(--ink-soft); font-size:14px; padding:8px 0;">No tasks yet. Add one below.</li>`
+          : renderTaskTree(tasks, cat.id, todayCompleted);
+
+        const badgeText = cat.tier === "required" ? "Daily" : cat.tier === "most-days" ? "Most" : "Optional";
+
+        return `
+          <div class="category ${cat.tier}">
+            <div class="cat-header">
+              <h3 class="cat-title">${cat.name}</h3>
+              <span class="cat-badge">${badgeText}</span>
+            </div>
+            <div class="cat-meta">
+              <span>${cat.meta}</span>
+              <span class="pulse">
+                <span class="pulse-bar">${pulseHtml}</span>
+              </span>
+            </div>
+            <ul class="task-list">${tasksHtml}</ul>
+            <div class="add-task">
+              <input type="text" placeholder="Add a task…" data-add-cat="${cat.id}"/>
+              <button data-add-btn="${cat.id}">Add</button>
+            </div>
+          </div>
+        `;
+      }).join("")
+    }</div>`;
+
+    // wire checkbox events — only respond to the direct child checkbox of each task li
+    container.querySelectorAll(".task").forEach(li => {
+      const cb = li.querySelector(":scope > input[type='checkbox']");
+      if (!cb) return;
+      cb.addEventListener("change", async e => {
+        const taskId = li.dataset.taskId;
+        const tk = todayKey();
+        if (!state.completed[tk]) state.completed[tk] = {};
+        if (e.target.checked) {
+          state.completed[tk][taskId] = new Date().toISOString();
+        } else {
+          delete state.completed[tk][taskId];
+        }
+        await saveState();
+        renderHeader();
+        renderWeekStrip();
+        renderCategories();
+      });
+    });
+
+    // urgent toggle
+    container.querySelectorAll("[data-urgent]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        const taskId = btn.dataset.urgent;
+        const catId = btn.dataset.cat;
+        const task = findTask(state.tasks[catId] || [], taskId);
+        if (task) {
+          task.urgent = !task.urgent;
+          await saveState();
+          renderCategories();
+        }
+      });
+    });
+
+    // collapse toggle
+    container.querySelectorAll("[data-collapse]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        const taskId = btn.dataset.collapse;
+        const catId = btn.dataset.cat;
+        const task = findTask(state.tasks[catId] || [], taskId);
+        if (task) {
+          task.collapsed = !task.collapsed;
+          await saveState();
+          renderCategories();
+        }
+      });
+    });
+
+    // inline edit on click of task text
+    container.querySelectorAll("[data-edit]").forEach(span => {
+      span.addEventListener("click", e => {
+        e.stopPropagation();
+        const taskId = span.dataset.edit;
+        const catId = span.dataset.cat;
+        const task = findTask(state.tasks[catId] || [], taskId);
+        if (!task) return;
+
+        const currentText = task.text;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "task-edit-input";
+        input.value = currentText;
+        span.replaceWith(input);
+        input.focus();
+        input.setSelectionRange(currentText.length, currentText.length);
+
+        let committed = false;
+        const commit = async (save) => {
+          if (committed) return;
+          committed = true;
+          if (save) {
+            const newText = input.value.trim();
+            if (newText && newText !== currentText) {
+              task.text = newText;
+              await saveState();
+            }
+          }
+          renderCategories();
+        };
+
+        input.addEventListener("blur", () => commit(true));
+        input.addEventListener("keydown", e => {
+          if (e.key === "Enter") { e.preventDefault(); commit(true); }
+          if (e.key === "Escape") { commit(false); }
+        });
+      });
+    });
+
+    // delete (and prune all descendant completions)
+    container.querySelectorAll("[data-delete]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        const taskId = btn.dataset.delete;
+        const catId = btn.dataset.cat;
+        const tasks = state.tasks[catId] || [];
+
+        // collect this task and all descendant IDs before removal
+        const target = findTask(tasks, taskId);
+        const idsToPrune = target ? flattenTasks([target]).map(t => t.id) : [taskId];
+
+        // remove the task from its parent list
+        const info = findTaskParent(tasks, taskId);
+        if (info) {
+          info.list.splice(info.list.findIndex(t => t.id === taskId), 1);
+        }
+
+        // clear completion records
+        Object.keys(state.completed).forEach(dk => {
+          idsToPrune.forEach(id => {
+            if (state.completed[dk][id]) delete state.completed[dk][id];
+          });
+        });
+
+        await saveState();
+        renderHeader();
+        renderWeekStrip();
+        renderCategories();
+      });
+    });
+
+    // add subtask — show inline input
+    container.querySelectorAll("[data-add-sub]").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        const parentId = btn.dataset.addSub;
+        const catId = btn.dataset.cat;
+        const li = btn.closest(".task");
+
+        // remove any other open subtask inputs
+        document.querySelectorAll(".subtask-input-wrap").forEach(el => el.remove());
+
+        const wrap = document.createElement("div");
+        wrap.className = "subtask-input-wrap";
+        wrap.innerHTML = `
+          <input type="text" placeholder="Subtask…" autofocus/>
+          <button>Add</button>
+        `;
+        // insert after the task li (and before any existing children ul)
+        li.insertAdjacentElement("afterend", wrap);
+
+        const input = wrap.querySelector("input");
+        const addBtn = wrap.querySelector("button");
+        input.focus();
+
+        const commit = async () => {
+          const text = input.value.trim();
+          if (text) {
+            await addSubtask(catId, parentId, text);
+          }
+          wrap.remove();
+        };
+
+        addBtn.addEventListener("click", commit);
+        input.addEventListener("keydown", e => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") wrap.remove();
+        });
+      });
+    });
+
+    // add top-level task
+    container.querySelectorAll("[data-add-btn]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const catId = btn.dataset.addBtn;
+        const input = container.querySelector(`[data-add-cat="${catId}"]`);
+        await addTask(catId, input.value);
+        input.value = "";
+        input.focus();
+      });
+    });
+
+    container.querySelectorAll("[data-add-cat]").forEach(input => {
+      input.addEventListener("keydown", async e => {
+        if (e.key === "Enter") {
+          await addTask(input.dataset.addCat, input.value);
+          input.value = "";
+        }
+      });
+    });
+  }
+
+  function makeTask(text) {
+    return {
+      id: "t_" + Date.now() + "_" + Math.random().toString(36).slice(2,7),
+      text: text,
+      created: new Date().toISOString(),
+      children: []
+    };
+  }
+
+  async function addTask(catId, text) {
+    const trimmed = (text || "").trim();
+    if (!trimmed) return;
+    if (!state.tasks[catId]) state.tasks[catId] = [];
+    state.tasks[catId].push(makeTask(trimmed));
+    await saveState();
+    renderCategories();
+  }
+
+  async function addSubtask(catId, parentId, text) {
+    const trimmed = (text || "").trim();
+    if (!trimmed) return;
+    const tasks = state.tasks[catId] || [];
+    const parent = findTask(tasks, parentId);
+    if (!parent) return;
+    if (!parent.children) parent.children = [];
+    parent.children.push(makeTask(trimmed));
+    await saveState();
+    renderCategories();
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function renderAll() {
+    renderHeader();
+    renderWeekStrip();
+    renderRoutine();
+    renderCategories();
+  }
+
+  // ============ Week nav ============
+  document.getElementById("prevWeek").addEventListener("click", () => {
+    viewWeekStart.setDate(viewWeekStart.getDate() - 7);
+    viewWeekStart = new Date(viewWeekStart);
+    renderAll();
+  });
+  document.getElementById("nextWeek").addEventListener("click", () => {
+    viewWeekStart.setDate(viewWeekStart.getDate() + 7);
+    viewWeekStart = new Date(viewWeekStart);
+    renderAll();
+  });
+  document.getElementById("thisWeek").addEventListener("click", () => {
+    viewWeekStart = getWeekStart(new Date());
+    renderAll();
+  });
+
+  // ============ Reset ============
+  document.getElementById("resetBtn").addEventListener("click", async () => {
+    if (confirm("Reset all tasks and completion history? This cannot be undone.")) {
+      state = { tasks: {}, completed: {}, routine: {} };
+      await saveState();
+      renderAll();
+    }
+  });
+
+  // ============ Export / Import ============
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const dataStr = JSON.stringify(state, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `weekly-dashboard-backup-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("importBtn").addEventListener("click", () => {
+    document.getElementById("importFile").click();
+  });
+
+  document.getElementById("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (!imported.tasks || typeof imported.tasks !== "object") {
+          alert("That doesn't look like a valid backup file.");
+          return;
+        }
+        if (!confirm("This will replace all current data with the imported file. Continue?")) {
+          return;
+        }
+        state = {
+          tasks: imported.tasks || {},
+          completed: imported.completed || {},
+          routine: imported.routine || {}
+        };
+        await saveState();
+        renderAll();
+        alert("Import successful.");
+      } catch (err) {
+        alert("Could not read that file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    // reset the file input so the same file can be re-imported if needed
+    e.target.value = "";
+  });
+
+  // ============ Auth UI wiring ============
+  document.getElementById("signInBtn").addEventListener("click", signIn);
+  document.getElementById("signUpBtn").addEventListener("click", signUp);
+  document.getElementById("signOutBtn").addEventListener("click", signOut);
+  ["authEmail", "authPassword"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") signIn();
+    });
+  });
+
+  // ============ Service Worker ============
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(err => {
+        console.warn("SW registration failed:", err);
+      });
+    });
+  }
+
+  // ============ Boot ============
+  (async () => {
+    if (!initSupabase()) {
+      showAuth();
+      renderAll();
+      return;
+    }
+
+    // Check existing session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session && session.user) {
+      currentUser = session.user;
+      hideAuth();
+      await loadState();
+    } else {
+      showAuth();
+    }
+    renderAll();
+
+    // Listen for auth changes (e.g., session expiry)
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        currentUser = null;
+        state = { tasks: {}, completed: {}, routine: {} };
+        showAuth();
+        renderAll();
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
