@@ -1059,7 +1059,7 @@
   const SUPABASE_URL = "https://xqmbimbexahzmjkueqcn.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_HTyFOx8XPEB4LLnn5vbRow_EfmVIU1y";
 
-  let supabase = null;
+  let sbClient = null;
   let currentUser = null;
   let saveTimer = null;
   let saveInFlight = false;
@@ -1074,7 +1074,7 @@
       showAuthMsg("Supabase library failed to load. Check your internet connection.", "error");
       return false;
     }
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true }
     });
     return true;
@@ -1090,10 +1090,10 @@
 
   // ============ Storage (Supabase-backed) ============
   async function loadState() {
-    if (!supabase || !currentUser) return;
+    if (!sbClient || !currentUser) return;
     setSyncStatus("Loading…", "syncing");
     try {
-      const { data, error } = await supabase
+      const { data, error } = await sbClient
         .from("dashboard_state")
         .select("data")
         .eq("user_id", currentUser.id)
@@ -1114,7 +1114,7 @@
         };
       } else {
         // first time — create an empty row
-        await supabase
+        await sbClient
           .from("dashboard_state")
           .insert({ user_id: currentUser.id, data: state });
       }
@@ -1128,7 +1128,7 @@
 
   // Debounced save — coalesces rapid changes into one network call
   async function saveState() {
-    if (!supabase || !currentUser) return;
+    if (!sbClient || !currentUser) return;
     if (saveTimer) clearTimeout(saveTimer);
     setSyncStatus("Saving…", "syncing");
     saveTimer = setTimeout(async () => {
@@ -1140,7 +1140,7 @@
   async function doSave() {
     saveInFlight = true;
     try {
-      const { error } = await supabase
+      const { error } = await sbClient
         .from("dashboard_state")
         .upsert({ user_id: currentUser.id, data: state }, { onConflict: "user_id" });
 
@@ -1193,7 +1193,7 @@
     const btn = document.getElementById("signInBtn");
     btn.disabled = true;
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
       if (error) {
         showAuthMsg(error.message, "error");
         return;
@@ -1224,7 +1224,7 @@
     const btn = document.getElementById("signUpBtn");
     btn.disabled = true;
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await sbClient.auth.signUp({ email, password });
       if (error) {
         showAuthMsg(error.message, "error");
         return;
@@ -1246,8 +1246,8 @@
   }
 
   async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    if (!sbClient) return;
+    await sbClient.auth.signOut();
     currentUser = null;
     state = { tasks: {}, completed: {}, routine: {} };
     showAuth();
@@ -1840,7 +1840,7 @@
     }
 
     // Check existing session
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sbClient.auth.getSession();
     if (session && session.user) {
       currentUser = session.user;
       hideAuth();
@@ -1851,7 +1851,7 @@
     renderAll();
 
     // Listen for auth changes (e.g., session expiry)
-    supabase.auth.onAuthStateChange((event, session) => {
+    sbClient.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session) {
         currentUser = null;
         state = { tasks: {}, completed: {}, routine: {} };

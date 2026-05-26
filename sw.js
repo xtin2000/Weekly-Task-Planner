@@ -2,7 +2,7 @@
 // Caches the app shell so it loads offline after the first visit.
 // Data sync still requires network — that's expected.
 
-const CACHE_NAME = "week-dashboard-v1";
+const CACHE_NAME = "week-dashboard-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
